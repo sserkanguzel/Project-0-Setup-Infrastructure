@@ -16,47 +16,94 @@ variable "proxmox_api_token_secret" {
     sensitive = true
 }
 
+variable "ssh_username" {
+  type    = string
+  default = null
+}
+
 variable "ssh_password" {
   type    = string
   default = null
 }
 
 # Resource Definiation for the VM Template
-source "proxmox-iso" "fedora-kickstart" {
+source "proxmox-iso" "k8s-nodebuild" {
   disks {
     disk_size         = "32G"
     storage_pool      = "local-lvm"
     type              = "scsi"
   }
-  efi_config {
-    efi_storage_pool  = "local-lvm"
-    efi_type          = "4m"
-    pre_enrolled_keys = true
-  }
-  http_directory           = "config"
   insecure_skip_tls_verify = true
   boot_iso {
     type= "scsi"
-    iso_file                 = "local:iso/Fedora-Server-dvd-x86_64-29-1.2.iso"
+    iso_file = "local:iso/ubuntu-24.10-live-server-amd64.iso"
     unmount= true
-    iso_checksum= "sha512:33c08e56c83d13007e4a5511b9bf2c4926c4aa12fd5dd56d493c0653aecbab380988c5bf1671dbaea75c582827797d98c4a611f7fb2b131fbde2c677d5258ec9"
-
+    iso_checksum= "none"
+    iso_storage_pool = "local"
   }
   network_adapters {
     bridge = "vmbr0"
     model  = "virtio"
   }
-  node                 = "my-proxmox"
-  password             = "${var.proxmox_api_token_secret}"
+  node= "prox"
+  vm_id = "900"
+  vm_name = "k8s-node-template"
+  qemu_agent = true
+  scsi_controller = "virtio-scsi-pci"
+  cores = "1"
+  memory = "2048"
+  cloud_init = true
+  cloud_init_storage_pool = "local-lvm"
+  token                = "${var.proxmox_api_token_secret}"
   proxmox_url          = "${var.proxmox_api_url}"
   ssh_password         = "${var.ssh_password}"
   ssh_timeout          = "15m"
-  ssh_username         = "root"
-  template_description = "Fedora 29-1.2, generated on ${timestamp()}"
-  template_name        = "fedora-29"
+  ssh_username         = "${var.ssh_username}"
+  template_description = "Kubernetes node template, generated on ${timestamp()}"
+  template_name        = "k8s-node"
   username             = "${var.proxmox_api_token_id}"
+  http_directory = "http"
+
+    # PACKER Boot Commands
+  boot_command = [
+        "<esc><wait>",
+        "e<wait>",
+        "<down><down><down><end>",
+        "<bs><bs><bs><bs><wait>",
+        "autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>",
+        "<f10><wait>"
+    ]
+  boot = "c"
+  boot_wait = "5s"
+
 }
 
 build {
-  sources = ["source.proxmox-iso.fedora-kickstart"]
+  sources = ["source.proxmox-iso.k8s-nodebuild"]
+  # Provisioning the VM Template for Cloud-Init Integration in Proxmox #1
+  provisioner "shell" {
+    inline = [
+        "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
+        "sudo rm /etc/ssh/ssh_host_*",
+        "sudo truncate -s 0 /etc/machine-id",
+        "sudo apt -y autoremove --purge",
+        "sudo apt -y clean",
+        "sudo apt -y autoclean",
+        "sudo cloud-init clean",
+        "sudo rm -f /etc/cloud/cloud.cfg.d/subiquity-disable-cloudinit-networking.cfg",
+        "sudo rm -f /etc/netplan/00-installer-config.yaml",
+        "sudo sync"
+    ]
+  }
+
+ # Provisioning the VM Template for Cloud-Init Integration in Proxmox #2
+ provisioner "file" {
+    source = "files/99-pve.cfg"
+    destination = "/tmp/99-pve.cfg"
+ }
+
+# Provisioning the VM Template for Cloud-Init Integration in Proxmox #3
+ provisioner "shell" {
+    inline = [ "sudo cp /tmp/99-pve.cfg /etc/cloud/cloud.cfg.d/99-pve.cfg" ]
+ }
 }
