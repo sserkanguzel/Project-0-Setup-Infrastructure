@@ -3,7 +3,7 @@ autoinstall:
   version: 1
   locale: en_US
   keyboard:
-    layout: en
+    layout: tr
   ssh:
     install-server: true
     allow-pw: true
@@ -22,9 +22,10 @@ autoinstall:
     package_upgrade: false
     timezone: Europe/Berlin
     users:
-      - name: ssg
+      - name: SSG
         groups: [adm, sudo]
         lock-passwd: false
         sudo: ALL=(ALL) NOPASSWD:ALL
         shell: /bin/bash
-        passwd: "passwordd"
+        ssh_authorized_keys:
+           - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEpRB3zL3/QVlTBxHRtITz2vavDcv+FEaC2/1U8IFOUs ssg@DESKTOP-1SK04NB
