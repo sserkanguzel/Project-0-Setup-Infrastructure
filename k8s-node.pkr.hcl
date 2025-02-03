@@ -36,7 +36,7 @@ source "proxmox-iso" "k8s-nodebuild" {
   insecure_skip_tls_verify = true
   boot_iso {
     type= "scsi"
-    iso_file = "local:iso/ubuntu-24.10-live-server-amd64.iso"
+    iso_file = "local:iso/ubuntu-22.04.5-live-server-amd64.iso"
     unmount= true
     iso_checksum= "none"
     iso_storage_pool = "local"
@@ -44,26 +44,35 @@ source "proxmox-iso" "k8s-nodebuild" {
   network_adapters {
     bridge = "vmbr0"
     model  = "virtio"
+    firewall = "false"
   }
+
+
   node= "prox"
   vm_id = "900"
   vm_name = "k8s-node-template"
   qemu_agent = true
+
   scsi_controller = "virtio-scsi-pci"
   cores = "1"
   memory = "2048"
+  
   cloud_init = true
   cloud_init_storage_pool = "local-lvm"
+  
   token                = "${var.proxmox_api_token_secret}"
   proxmox_url          = "${var.proxmox_api_url}"
-  ssh_password         = "${var.ssh_password}"
+  ssh_private_key_file = "C:/Users/SSG/.ssh/id_ed25519"
   ssh_timeout          = "15m"
   ssh_username         = "${var.ssh_username}"
   template_description = "Kubernetes node template, generated on ${timestamp()}"
   template_name        = "k8s-node"
   username             = "${var.proxmox_api_token_id}"
   http_directory = "http"
-
+  http_bind_address = "192.168.1.109"
+  http_port_min = 8802
+  http_port_max = 8815
+  
     # PACKER Boot Commands
   boot_command = [
         "<esc><wait>",
