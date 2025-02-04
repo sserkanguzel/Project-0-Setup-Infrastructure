@@ -26,7 +26,7 @@ variable "ssh_password" {
   default = null
 }
 
-# Resource Definiation for the VM Template
+# Resource Definition for the VM Template
 source "proxmox-iso" "k8s-nodebuild" {
   disks {
     disk_size         = "32G"
@@ -54,8 +54,8 @@ source "proxmox-iso" "k8s-nodebuild" {
   qemu_agent = true
 
   scsi_controller = "virtio-scsi-pci"
-  cores = "1"
-  memory = "2048"
+  cores = "2"
+  memory = "4096"
   
   cloud_init = true
   cloud_init_storage_pool = "local-lvm"
@@ -69,11 +69,9 @@ source "proxmox-iso" "k8s-nodebuild" {
   template_name        = "k8s-node"
   username             = "${var.proxmox_api_token_id}"
   http_directory = "http"
-  http_bind_address = "192.168.1.109"
-  http_port_min = 8802
-  http_port_max = 8815
+
   
-    # PACKER Boot Commands
+  # PACKER Boot Commands
   boot_command = [
         "<esc><wait>",
         "e<wait>",
