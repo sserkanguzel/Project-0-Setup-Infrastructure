@@ -1,8 +1,7 @@
-# Ubuntu Server jammy
-# ---
-# Packer Template to create an Ubuntu Server (jammy) on Proxmox
+# Packer Template to create an Ubuntu Server on Proxmox
 
-# Variable Definitions
+# Variables and Resources Definitions
+
 variable "proxmox_api_url" {
     type = string
 }
@@ -21,19 +20,17 @@ variable "ssh_username" {
   default = null
 }
 
-variable "ssh_password" {
-  type    = string
-  default = null
-}
-
-# Resource Definiation for the VM Template
 source "proxmox-iso" "k8s-nodebuild" {
-  disks {
+
+  disks { 
     disk_size         = "32G"
     storage_pool      = "local-lvm"
     type              = "scsi"
   }
+
   insecure_skip_tls_verify = true
+  
+
   boot_iso {
     type= "scsi"
     iso_file = "local:iso/ubuntu-22.04.5-live-server-amd64.iso"
@@ -41,6 +38,8 @@ source "proxmox-iso" "k8s-nodebuild" {
     iso_checksum= "none"
     iso_storage_pool = "local"
   }
+
+
   network_adapters {
     bridge = "vmbr0"
     model  = "virtio"
@@ -54,8 +53,8 @@ source "proxmox-iso" "k8s-nodebuild" {
   qemu_agent = true
 
   scsi_controller = "virtio-scsi-pci"
-  cores = "1"
-  memory = "2048"
+  cores = "2"
+  memory = "4096"
   
   cloud_init = true
   cloud_init_storage_pool = "local-lvm"
@@ -63,23 +62,25 @@ source "proxmox-iso" "k8s-nodebuild" {
   token                = "${var.proxmox_api_token_secret}"
   proxmox_url          = "${var.proxmox_api_url}"
   ssh_private_key_file = "C:/Users/SSG/.ssh/id_ed25519"
-  ssh_timeout          = "15m"
   ssh_username         = "${var.ssh_username}"
+  ssh_timeout          = "15m"
+
+
   template_description = "Kubernetes node template, generated on ${timestamp()}"
   template_name        = "k8s-node"
   username             = "${var.proxmox_api_token_id}"
-  http_directory = "http"
-  http_bind_address = "192.168.1.109"
-  http_port_min = 8802
-  http_port_max = 8815
   
-    # PACKER Boot Commands
+  http_directory = "http" ## For autoinstall configurations, Packer opens up a port on your workstation and provides the configurations under http folder through that port. 
+
+  
+  # PACKER Boot Commands
+
   boot_command = [
         "<esc><wait>",
         "e<wait>",
         "<down><down><down><end>",
         "<bs><bs><bs><bs><wait>",
-        "autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>",
+        "autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ ---<wait>", # Auto install command is initiated in boot process and via this command. Your local workstations ip and port is given via packer during the deployment process. 
         "<f10><wait>"
     ]
   boot = "c"
