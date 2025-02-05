@@ -6,7 +6,7 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
   desc = "Kubernetes controller node"
   agent = 1
   target_node = "prox"
-  vmid = "151"
+  vmid = "150"
 
   # -- Template settings
 
@@ -67,4 +67,61 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
   ciuser = var.ssh_username
   cipassword = var.cipasswd
   sshkeys = var.ssh_key
+  
+  
+  # Copy Prerequisites Shell Script and Execute it
+  provisioner "file" {
+    source      = "${path.module}/install_prerequisites.sh"
+    destination = "/tmp/install_prerequisites.sh"
+    connection {
+      type        = "ssh"
+      user        = var.ssh_username
+      password    = var.cipasswd
+      host        = "192.168.1.150"
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /tmp/install_prerequisites.sh",   # Make the file executable if necessary
+      "sed -i 's/\r//' /tmp/install_prerequisites.sh", # Make the file readable for linux. Use it if you are working from windows environment.
+      "bash /tmp/install_prerequisites.sh",        # Run the script
+      "sudo reboot"
+    ]
+    connection {
+      type        = "ssh"
+      user        = var.ssh_username
+      password    = var.cipasswd
+      host        = "192.168.1.150"
+    }
+  }
+  
+  # Second provisioner block for post-reboot commands
+  provisioner "file" {
+    source      = "${path.module}/install_kubernetes.sh"
+    destination = "/tmp/install_kubernetes.sh"
+    connection {
+      type        = "ssh"
+      user        = var.ssh_username
+      password    = var.cipasswd
+      host        = "192.168.1.150"
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /tmp/install_kubernetes.sh",   # Make the file executable if necessary
+      "sed -i 's/\r//' /tmp/install_kubernetes.sh", # Make the file readable for linux. Use it if you are working from windows environment.
+      "bash /tmp/install_kubernetes.sh"        # Run the script
+    ]
+    connection {
+      type        = "ssh"
+      user        = var.ssh_username
+      password    = var.cipasswd
+      host        = "192.168.1.150"
+    }
+  }
+
+
 }
+
