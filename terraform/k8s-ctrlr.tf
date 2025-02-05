@@ -11,7 +11,7 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
   # -- Template settings
 
   clone = "k8s-node"
-  full_clone = false
+  full_clone = true
 
   # -- Boot Process
 
@@ -22,11 +22,11 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
 
   qemu_os = "other"
   bios = "seabios"
-  cores = 1
+  cores = 2
   sockets = 1
   cpu_type = "kvm64"
-  memory = 2048
-  balloon = 2048
+  memory = 4096
+  balloon = 4096
 
   # -- Network Settings
 
@@ -64,7 +64,7 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
 
   ipconfig0 = "ip=192.168.1.150/24,gw=192.168.1.1"
   nameserver = "192.168.1.103"
-  ciuser = "SSG"
-  cipassword = "passwordd"
+  ciuser = var.ssh_username
+  cipassword = var.cipasswd
   sshkeys = var.ssh_key
 }

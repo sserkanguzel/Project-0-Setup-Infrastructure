@@ -4,7 +4,7 @@ terraform {
 
   required_providers {
     proxmox = {
-      source = "Terraform-for-Proxmox/proxmox"
+      source = "telmate/proxmox"
       version = "3.0.1-rc6"
     }
   }
@@ -28,6 +28,11 @@ variable "ssh_username" {
 }
 
 variable "ssh_key" {  
+  type = string
+  sensitive = true
+}
+
+variable "cipasswd" {  
   type = string
   sensitive = true
 }
