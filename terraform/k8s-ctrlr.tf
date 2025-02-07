@@ -14,7 +14,8 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
   # -- Boot Process
   onboot       = true 
   automatic_reboot = true
-
+  bootdisk = "scsi0"
+  
   # -- Hardware Settings
   qemu_os      = "other"
   bios         = "seabios"
