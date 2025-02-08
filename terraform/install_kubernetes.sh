@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Post reboot phase started!"
+echo "Kubernetes installation started!"
 
 # Function to log success or error
 log_status() {
@@ -11,52 +11,50 @@ log_status() {
     fi
 }
 
-echo "Updating system"
+echo "Updating system..."
 sudo apt-get update > /dev/null 2>&1
 log_status "System update"
 
-echo "Installing additional packages and adding kubernetes gpg key.."
+echo "Installing required packages..."
 sudo apt-get install -y apt-transport-https ca-certificates curl gpg > /dev/null 2>&1
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg > /dev/null 2>&1
-log_status "Packages are installed"
+log_status "Package installation"
 
 echo "Adding Kubernetes repository..."
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg > /dev/null 2>&1
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null 2>&1
-log_status "Adding Kubernetes repository"
+log_status "Added Kubernetes repository"
 
-echo "Updating package list after adding Kubernetes repo..."
+echo "Updating package list..."
 sudo apt-get update > /dev/null 2>&1
-log_status "apt-get update after adding repo"
+log_status "apt-get update"
 
 echo "Installing Kubernetes components (kubelet, kubeadm, kubectl)..."
 sudo apt-get install -y kubelet kubeadm kubectl > /dev/null 2>&1
-log_status "apt-get install Kubernetes components"
+log_status "Kubernetes components installation"
 
-echo "Put kubernetes components on hold"
+echo "Holding Kubernetes components..."
 sudo apt-mark hold kubelet kubeadm kubectl > /dev/null 2>&1
-log_status "Kubernetes components are on hold"
+log_status "Held Kubernetes components"
 
 echo "Enabling and starting kubelet..."
 sudo systemctl enable --now kubelet > /dev/null 2>&1
-log_status "systemctl enable kubelet"
+log_status "Started kubelet"
 
-echo "Initializing Kubernetes cluster..."
-sudo kubeadm init > /dev/null 2>&1
-log_status "kubeadm init"
+# Run kubeadm init only on the controller node
+if [[ $(hostname) == "k8s-ctrlr" ]]; then
+    echo "Initializing Kubernetes cluster (controller node)..."
+    sudo kubeadm init > /dev/null 2>&1
+    log_status "kubeadm init"
 
-echo "Setting up kubeconfig for the user..."
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-log_status "User setup"
+    echo "Setting up kubeconfig..."
+    mkdir -p $HOME/.kube
+    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+    sudo chown $(id -u):$(id -g) $HOME/.kube/config
+    log_status "Configured kubeconfig"
 
-echo "Applying Calico network plugin..."
-kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml > /dev/null 2>&1
-log_status "Calico network plugin"
+    echo "Applying Calico network plugin..."
+    kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml > /dev/null 2>&1
+    log_status "Installed Calico"
+fi
 
-echo "Restarting kubelet..."
-sudo systemctl restart kubelet > /dev/null 2>&1
-log_status "Kubelet restart"
-
-echo "Kubernetes installed succesfully!"
-
+echo "Kubernetes installation completed successfully!"
