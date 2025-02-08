@@ -1,21 +1,47 @@
-resource "proxmox_vm_qemu" "k8s-ctrlr" {
-  
-  # VM specifications
-  name          = "k8s-ctrlr"
-  desc          = "Kubernetes controller node"
+variable "vms" {
+  type = map(object({
+    name      = string
+    vmid      = number
+    ipconfig0 = string
+  }))
+
+  default = {
+    "k8s-ctrlr" = {
+      name      = "k8s-ctrlr"
+      vmid      = 150
+      ipconfig0 = "192.168.1.150"
+    },
+    "k8s-worker-1" = {
+      name      = "k8s-worker-1"
+      vmid      = 151
+      ipconfig0 = "192.168.1.151"
+    },
+    "k8s-worker-2" = {
+      name      = "k8s-worker-2"
+      vmid      = 152
+      ipconfig0 = "192.168.1.152"
+    }
+  }
+}
+
+resource "proxmox_vm_qemu" "k8s_vm" {
+  for_each = var.vms
+
+  name         = each.value.name
+  desc         = "Kubernetes ${each.value.name} node"
   agent        = 1
   target_node  = "prox"
-  vmid         = "150"
+  vmid         = each.value.vmid
 
   # -- Template settings
   clone        = "k8s-node"
   full_clone   = true
 
   # -- Boot Process
-  onboot       = true 
+  onboot       = true
   automatic_reboot = true
-  bootdisk = "scsi0"
-  
+  bootdisk     = "scsi0"
+
   # -- Hardware Settings
   qemu_os      = "other"
   bios         = "seabios"
@@ -33,9 +59,9 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
   }
 
   # -- Disk Settings
-  scsihw = "virtio-scsi-single"     
-  
-  disks {  
+  scsihw = "virtio-scsi-single"
+
+  disks {
     ide {
       ide0 {
         cloudinit {
@@ -46,9 +72,9 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
     scsi {
       scsi0 {
         disk {
-          storage = "local-lvm"
-          size = "32G"
-          iothread = false
+          storage   = "local-lvm"
+          size      = "32G"
+          iothread  = false
           replicate = false
         }
       }
@@ -56,7 +82,7 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
   }
 
   # -- Cloud Init Settings
-  ipconfig0   = "ip=192.168.1.150/24,gw=192.168.1.1"
+  ipconfig0   = "ip=${each.value.ipconfig0}/24,gw=192.168.1.1"
   nameserver  = "192.168.1.103"
   ciuser      = var.ssh_username
   cipassword  = var.cipasswd
@@ -65,17 +91,18 @@ resource "proxmox_vm_qemu" "k8s-ctrlr" {
 
 # **Provisioning Step 1: Install Prerequisites and Reboot**
 resource "null_resource" "install_prerequisites" {
-  depends_on = [proxmox_vm_qemu.k8s-ctrlr]
+  for_each   = var.vms
+  depends_on = [proxmox_vm_qemu.k8s_vm]
 
   provisioner "file" {
     source      = "${path.module}/install_prerequisites.sh"
     destination = "/tmp/install_prerequisites.sh"
 
     connection {
-      type        = "ssh"
-      user        = var.ssh_username
-      password    = var.cipasswd
-      host        = "192.168.1.150"
+      type     = "ssh"
+      user     = var.ssh_username
+      password = var.cipasswd
+      host     = each.value.ipconfig0
     }
   }
 
@@ -88,16 +115,17 @@ resource "null_resource" "install_prerequisites" {
     ]
 
     connection {
-      type        = "ssh"
-      user        = var.ssh_username
-      password    = var.cipasswd
-      host        = "192.168.1.150"
+      type     = "ssh"
+      user     = var.ssh_username
+      password = var.cipasswd
+      host     = each.value.ipconfig0
     }
   }
 }
 
 # **Provisioning Step 2: Install Kubernetes After Reboot**
 resource "null_resource" "install_kubernetes" {
+  for_each   = var.vms
   depends_on = [null_resource.install_prerequisites]
 
   provisioner "file" {
@@ -105,11 +133,11 @@ resource "null_resource" "install_kubernetes" {
     destination = "/tmp/install_kubernetes.sh"
 
     connection {
-      type        = "ssh"
-      user        = var.ssh_username
-      password    = var.cipasswd
-      host        = "192.168.1.150"
-      timeout     = "600s"  # Allow up to 10 minutes for the reboot process
+      type     = "ssh"
+      user     = var.ssh_username
+      password = var.cipasswd
+      host     = each.value.ipconfig0
+      timeout  = "600s"
     }
   }
 
@@ -121,11 +149,11 @@ resource "null_resource" "install_kubernetes" {
     ]
 
     connection {
-      type        = "ssh"
-      user        = var.ssh_username
-      password    = var.cipasswd
-      host        = "192.168.1.150"
-      timeout     = "600s"  # Ensure Terraform waits for the reboot
+      type     = "ssh"
+      user     = var.ssh_username
+      password = var.cipasswd
+      host     = each.value.ipconfig0
+      timeout  = "600s"
     }
   }
 }
