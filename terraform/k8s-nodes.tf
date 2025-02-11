@@ -5,24 +5,6 @@ variable "vms" {
     vmid      = number
     ipconfig0 = string
   }))
-
-  default = {
-    "k8s-ctrlr" = {
-      name      = "k8s-ctrlr"
-      vmid      = 150
-      ipconfig0 = "192.168.1.150"
-    },
-    "k8s-worker-1" = {
-      name      = "k8s-worker-1"
-      vmid      = 151
-      ipconfig0 = "192.168.1.151"
-    },
-    "k8s-worker-2" = {
-      name      = "k8s-worker-2"
-      vmid      = 152
-      ipconfig0 = "192.168.1.152"
-    }
-  }
 }
 
 # Proxmox VM configuration for Kubernetes nodes
