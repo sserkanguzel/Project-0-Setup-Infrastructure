@@ -1,0 +1,3 @@
+credentials.pkr.hcl
+credentials.auto.tfvars
+http/user-data

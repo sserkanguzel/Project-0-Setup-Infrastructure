@@ -57,8 +57,7 @@ resource "proxmox_vm_qemu" "k8s_vm" {
   ipconfig0   = "ip=${each.value.ipconfig0}/24,gw=192.168.1.1"
   nameserver  = "192.168.1.103"
   ciuser      = var.ssh_username
-  cipassword  = var.cipasswd
-  sshkeys     = var.ssh_key
+  ssh_private_key = file("~/.ssh/id_ed25519")
 }
 
 # Install prerequisites and reboot nodes
@@ -73,7 +72,7 @@ resource "null_resource" "install_prerequisites" {
     connection {
       type     = "ssh"
       user     = var.ssh_username
-      password = var.cipasswd
+      private_key = file("~/.ssh/id_ed25519")
       host     = each.value.ipconfig0
     }
   }
@@ -88,7 +87,7 @@ resource "null_resource" "install_prerequisites" {
     connection {
       type     = "ssh"
       user     = var.ssh_username
-      password = var.cipasswd
+      private_key = file("~/.ssh/id_ed25519")
       host     = each.value.ipconfig0
     }
   }
@@ -106,7 +105,7 @@ resource "null_resource" "install_kubernetes" {
     connection {
       type     = "ssh"
       user     = var.ssh_username
-      password = var.cipasswd
+      private_key = file("~/.ssh/id_ed25519")
       host     = each.value.ipconfig0
       timeout  = "600s"
     }
@@ -121,7 +120,7 @@ resource "null_resource" "install_kubernetes" {
     connection {
       type     = "ssh"
       user     = var.ssh_username
-      password = var.cipasswd
+      private_key = file("~/.ssh/id_ed25519")
       host     = each.value.ipconfig0
       timeout  = "600s"
     }
@@ -133,8 +132,8 @@ resource "null_resource" "fetch_join_command" {
 
   provisioner "local-exec" {
     command = <<-EOT
-      echo '#!/bin/bash' > 'C:\\Users\\SSG\\Desktop\\DEng projeler\\Proje 0_Kubernetes Altyapısı\\project0_setup_infra\\terraform\\join_command.sh'
-      echo "sudo $(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null SSG@192.168.1.150 'sudo kubeadm token create --print-join-command')" >> 'C:\\Users\\SSG\\Desktop\\DEng projeler\\Proje 0_Kubernetes Altyapısı\\project0_setup_infra\\terraform\\join_command.sh'
+      echo '#!/bin/bash' > '${path.module}\\join_command.sh'
+      echo "sudo $(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${var.ssh_username}@${var.vms["k8s-ctrlr"].ipconfig0} 'sudo kubeadm token create --print-join-command')" >> '${path.module}\\join_command.sh'
       EOT  
     interpreter = ["PowerShell", "-Command"]
   }
@@ -152,7 +151,7 @@ resource "null_resource" "join_worker_nodes" {
     connection {
       type     = "ssh"
       user     = var.ssh_username
-      password = var.cipasswd
+      private_key = file("~/.ssh/id_ed25519")
       host     = each.value.ipconfig0
       timeout  = "600s"
     }
@@ -168,7 +167,7 @@ resource "null_resource" "join_worker_nodes" {
     connection {
       type     = "ssh"
       user     = var.ssh_username
-      password = var.cipasswd
+      private_key = file("~/.ssh/id_ed25519")
       host     = each.value.ipconfig0
       timeout  = "600s"
     }
