@@ -1,3 +1,4 @@
+# Define variables for your VMs
 variable "vms" {
   type = map(object({
     name      = string
@@ -24,6 +25,7 @@ variable "vms" {
   }
 }
 
+# Proxmox VM configuration for Kubernetes nodes
 resource "proxmox_vm_qemu" "k8s_vm" {
   for_each = var.vms
 
@@ -33,16 +35,11 @@ resource "proxmox_vm_qemu" "k8s_vm" {
   target_node  = "prox"
   vmid         = each.value.vmid
 
-  # -- Template settings
   clone        = "k8s-node"
   full_clone   = true
-
-  # -- Boot Process
   onboot       = true
   automatic_reboot = true
   bootdisk     = "scsi0"
-
-  # -- Hardware Settings
   qemu_os      = "other"
   bios         = "seabios"
   cores        = 2
@@ -50,17 +47,12 @@ resource "proxmox_vm_qemu" "k8s_vm" {
   cpu_type     = "kvm64"
   memory       = 4096
   balloon      = 4096
-
-  # -- Network Settings
   network {
     id     = 0
     bridge = "vmbr0"
     model  = "virtio"
   }
-
-  # -- Disk Settings
   scsihw = "virtio-scsi-single"
-
   disks {
     ide {
       ide0 {
@@ -80,8 +72,6 @@ resource "proxmox_vm_qemu" "k8s_vm" {
       }
     }
   }
-
-  # -- Cloud Init Settings
   ipconfig0   = "ip=${each.value.ipconfig0}/24,gw=192.168.1.1"
   nameserver  = "192.168.1.103"
   ciuser      = var.ssh_username
@@ -89,7 +79,7 @@ resource "proxmox_vm_qemu" "k8s_vm" {
   sshkeys     = var.ssh_key
 }
 
-# **Provisioning Step 1: Install Prerequisites and Reboot**
+# Install prerequisites and reboot nodes
 resource "null_resource" "install_prerequisites" {
   for_each   = var.vms
   depends_on = [proxmox_vm_qemu.k8s_vm]
@@ -113,7 +103,6 @@ resource "null_resource" "install_prerequisites" {
       "bash /tmp/install_prerequisites.sh",
       "nohup bash -c 'sleep 5 && reboot' &"
     ]
-
     connection {
       type     = "ssh"
       user     = var.ssh_username
@@ -123,7 +112,7 @@ resource "null_resource" "install_prerequisites" {
   }
 }
 
-# **Provisioning Step 2: Install Kubernetes After Reboot**
+# Install Kubernetes after reboot
 resource "null_resource" "install_kubernetes" {
   for_each   = var.vms
   depends_on = [null_resource.install_prerequisites]
@@ -147,7 +136,53 @@ resource "null_resource" "install_kubernetes" {
       "sed -i 's/\r//' /tmp/install_kubernetes.sh",
       "bash /tmp/install_kubernetes.sh"
     ]
+    connection {
+      type     = "ssh"
+      user     = var.ssh_username
+      password = var.cipasswd
+      host     = each.value.ipconfig0
+      timeout  = "600s"
+    }
+  }
+}
 
+resource "null_resource" "fetch_join_command" {
+  depends_on = [null_resource.install_kubernetes]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo '#!/bin/bash' > 'C:\\Users\\SSG\\Desktop\\DEng projeler\\Proje 0_Kubernetes Altyapısı\\project0_setup_infra\\terraform\\join_command.sh'
+      echo "sudo $(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null SSG@192.168.1.150 'sudo kubeadm token create --print-join-command')" >> 'C:\\Users\\SSG\\Desktop\\DEng projeler\\Proje 0_Kubernetes Altyapısı\\project0_setup_infra\\terraform\\join_command.sh'
+      EOT  
+    interpreter = ["PowerShell", "-Command"]
+  }
+}
+
+# Join worker nodes
+resource "null_resource" "join_worker_nodes" {
+  for_each   = { for key, value in var.vms : key => value if key != "k8s-ctrlr" }
+  depends_on = [null_resource.fetch_join_command]
+
+  provisioner "file" {
+    source      = "${path.module}/join_command.sh"
+    destination = "/tmp/join_command.sh"
+
+    connection {
+      type     = "ssh"
+      user     = var.ssh_username
+      password = var.cipasswd
+      host     = each.value.ipconfig0
+      timeout  = "600s"
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "iconv -f UTF-16 -t UTF-8 /tmp/join_command.sh -o /tmp/join_command_formatted.sh",
+      "chmod +x /tmp/join_command_formatted.sh",
+      "sed -i 's/[[:space:]]*$//'  /tmp/join_command_formatted.sh",
+      "bash /tmp/join_command_formatted.sh"
+    ]
     connection {
       type     = "ssh"
       user     = var.ssh_username
