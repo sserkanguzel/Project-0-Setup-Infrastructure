@@ -54,8 +54,8 @@ resource "proxmox_vm_qemu" "k8s_vm" {
       }
     }
   }
-  ipconfig0   = "ip=${each.value.ipconfig0}/24,gw=192.168.1.1"
-  nameserver  = "192.168.1.103"
+  ipconfig0   = "ip=${each.value.ipconfig0}/24,gw=${var.gateway}"
+  nameserver  = ${var.nameserver}
   ciuser      = var.ssh_username
   ssh_private_key = file("~/.ssh/id_ed25519")
 }
