@@ -3,7 +3,7 @@ autoinstall:
   version: 1
   locale: en_US
   keyboard:
-    layout: tr
+    layout: us
   ssh:
     install-server: true
     allow-pw: true
@@ -20,12 +20,12 @@ autoinstall:
       size: 0
   user-data:
     package_upgrade: false
-    timezone: Europe/Berlin
+    timezone: Europe/Istanbul
     users:
-      - name: SSG
+      - name: ClusterVMusername
         groups: [adm, sudo]
         lock-passwd: false
         sudo: ALL=(ALL) NOPASSWD:ALL
         shell: /bin/bash
         ssh_authorized_keys:
-           - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEpRB3zL3/QVlTBxHRtITz2vavDcv+FEaC2/1U8IFOUs ssg@DESKTOP-1SK04NB
+           - sshkeyfromlocalpc
