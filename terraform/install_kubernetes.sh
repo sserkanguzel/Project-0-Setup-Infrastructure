@@ -38,7 +38,7 @@ log_status "Held Kubernetes components"
 
 echo "Enabling and starting kubelet..."
 sudo systemctl enable --now kubelet > /dev/null 2>&1
-log_status "Started kubelet"
+log_status "Start kubelet"
 
 # Run kubeadm init only on the controller node
 if [[ $(hostname) == "k8s-ctrlr" ]]; then
@@ -55,6 +55,9 @@ if [[ $(hostname) == "k8s-ctrlr" ]]; then
     echo "Applying Calico network plugin..."
     kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml > /dev/null 2>&1
     log_status "Installed Calico"
+
+    echo "Waiting for controller to become ready"
+    sleep 70
 fi
 
 echo "Kubernetes installation completed successfully!"
