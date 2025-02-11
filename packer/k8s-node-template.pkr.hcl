@@ -61,7 +61,7 @@ source "proxmox-iso" "k8s-nodebuild" {
   
   token                = "${var.proxmox_api_token_secret}"
   proxmox_url          = "${var.proxmox_api_url}"
-  ssh_private_key_file = "C:/Users/SSG/.ssh/id_ed25519"
+  ssh_private_key_file = "sshkeyfiledestinationinlocalpc"
   ssh_username         = "${var.ssh_username}"
   ssh_timeout          = "15m"
 
