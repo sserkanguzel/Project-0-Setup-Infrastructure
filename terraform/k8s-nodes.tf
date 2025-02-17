@@ -65,7 +65,7 @@ resource "null_resource" "install_prerequisites" {
   for_each   = var.vms
   depends_on = [proxmox_vm_qemu.k8s_vm]
 
-  provisioner "file" {
+  provisioner "file" { # File provisioners basically copies the content from your local environment to the remote VM's
     source      = "${path.module}/install_prerequisites.sh"
     destination = "/tmp/install_prerequisites.sh"
 
@@ -77,7 +77,7 @@ resource "null_resource" "install_prerequisites" {
     }
   }
 
-  provisioner "remote-exec" {
+  provisioner "remote-exec" { # Remote executers, runs the provisioned file inside remote VM's
     inline = [
       "chmod +x /tmp/install_prerequisites.sh",
       "sed -i 's/\r//' /tmp/install_prerequisites.sh",
@@ -129,6 +129,7 @@ resource "null_resource" "install_kubernetes" {
 
 resource "null_resource" "fetch_join_command" {
   depends_on = [null_resource.install_kubernetes]
+  # Once the installation in controller node completed, this part extracts the join command from the controller node via ssh, creates a join_command.sh in your local environment, copy the content to join_command.sh file and sends it to other worker nodes.
 
   provisioner "local-exec" { # This part specific to my case since I am running this command to fetch data from cluster to my local win 11 pc. Syntax may change depending on the operating system in your local environment.
     command = <<-EOT
@@ -159,7 +160,7 @@ resource "null_resource" "join_worker_nodes" {
 
   provisioner "remote-exec" {
     inline = [
-      "iconv -f UTF-16 -t UTF-8 /tmp/join_command.sh -o /tmp/join_command_formatted.sh", # This part is specific to my case. Since my local pc saves file as UTF-16 by default. In order for an Ubuntu VM to recognize it
+      "iconv -f UTF-16 -t UTF-8 /tmp/join_command.sh -o /tmp/join_command_formatted.sh", # This part is specific to my case. Since my local pc saves file as UTF-16 by default. In order for an Ubuntu VM to recognize it, It is needed to convert from UTF-16 to UTF-8. This may be differ in other environments.
       "chmod +x /tmp/join_command_formatted.sh",
       "sed -i 's/[[:space:]]*$//'  /tmp/join_command_formatted.sh",
       "bash /tmp/join_command_formatted.sh"
