@@ -90,7 +90,7 @@ source "proxmox-iso" "k8s-nodebuild" {
 
 build {
   sources = ["source.proxmox-iso.k8s-nodebuild"]
-  # Provisioning the VM Template for Cloud-Init Integration in Proxmox #1
+  # Provisioning cleanup tasks after installation
   provisioner "shell" {
     inline = [
         "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 1; done",
