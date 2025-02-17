@@ -130,7 +130,7 @@ resource "null_resource" "install_kubernetes" {
 resource "null_resource" "fetch_join_command" {
   depends_on = [null_resource.install_kubernetes]
 
-  provisioner "local-exec" {
+  provisioner "local-exec" { # This part specific to my case since I am running this command to fetch data from cluster to my local win 11 pc. Syntax may change depending on the operating system in your local environment.
     command = <<-EOT
       echo '#!/bin/bash' > '${path.module}\\join_command.sh'
       echo "sudo $(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${var.ssh_username}@${var.vms["k8s-ctrlr"].ipconfig0} 'sudo kubeadm token create --print-join-command')" >> '${path.module}\\join_command.sh'
@@ -159,7 +159,7 @@ resource "null_resource" "join_worker_nodes" {
 
   provisioner "remote-exec" {
     inline = [
-      "iconv -f UTF-16 -t UTF-8 /tmp/join_command.sh -o /tmp/join_command_formatted.sh",
+      "iconv -f UTF-16 -t UTF-8 /tmp/join_command.sh -o /tmp/join_command_formatted.sh", # This part is specific to my case. Since my local pc saves file as UTF-16 by default. In order for an Ubuntu VM to recognize it
       "chmod +x /tmp/join_command_formatted.sh",
       "sed -i 's/[[:space:]]*$//'  /tmp/join_command_formatted.sh",
       "bash /tmp/join_command_formatted.sh"
