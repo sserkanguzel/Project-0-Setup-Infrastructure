@@ -10,72 +10,78 @@ log_status() {
     fi
 }
 
-# Stage 1: Update system and install containerd
-echo "Updating system and installing containerd..."
-sudo apt-get update -y > /dev/null 2>&1
-log_status "System update"
 
-wget https://github.com/containerd/containerd/releases/download/v2.0.2/containerd-2.0.2-linux-amd64.tar.gz > /dev/null 2>&1
-log_status "Downloaded containerd tarball"
+# If kubeadm and kubelet already installed, skip install steps
+if command -v containerd >/dev/null 2>&1; then
+  echo "This node already has components installed. Skipping setup."
+else
+    # Stage 1: Update system and install containerd
+    echo "Updating system and installing containerd..."
+    sudo apt-get update -y > /dev/null 2>&1
+    log_status "System update"
 
-sudo tar Cxzvf /usr/local containerd-2.0.2-linux-amd64.tar.gz > /dev/null 2>&1
-log_status "Extracted containerd"
+    wget https://github.com/containerd/containerd/releases/download/v2.0.2/containerd-2.0.2-linux-amd64.tar.gz > /dev/null 2>&1
+    log_status "Downloaded containerd tarball"
 
-# Stage 2: Install runc
-echo "Installing runc..."
-wget https://github.com/opencontainers/runc/releases/download/v1.2.4/runc.amd64 > /dev/null 2>&1
-log_status "Downloaded runc"
+    sudo tar Cxzvf /usr/local containerd-2.0.2-linux-amd64.tar.gz > /dev/null 2>&1
+    log_status "Extracted containerd"
 
-sudo install -m 755 runc.amd64 /usr/local/sbin/runc > /dev/null 2>&1
-log_status "Installed runc"
+    # Stage 2: Install runc
+    echo "Installing runc..."
+    wget https://github.com/opencontainers/runc/releases/download/v1.2.4/runc.amd64 > /dev/null 2>&1
+    log_status "Downloaded runc"
 
-# Stage 3: Install CNI plugins
-echo "Installing CNI plugins..."
-wget https://github.com/containernetworking/plugins/releases/download/v1.6.2/cni-plugins-linux-amd64-v1.6.2.tgz > /dev/null 2>&1
-log_status "Downloaded CNI plugins"
+    sudo install -m 755 runc.amd64 /usr/local/sbin/runc > /dev/null 2>&1
+    log_status "Installed runc"
 
-sudo mkdir -p /opt/cni/bin > /dev/null 2>&1
-log_status "Created CNI directory"
+    # Stage 3: Install CNI plugins
+    echo "Installing CNI plugins..."
+    wget https://github.com/containernetworking/plugins/releases/download/v1.6.2/cni-plugins-linux-amd64-v1.6.2.tgz > /dev/null 2>&1
+    log_status "Downloaded CNI plugins"
 
-sudo tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.6.2.tgz > /dev/null 2>&1
-log_status "Extracted CNI plugins"
+    sudo mkdir -p /opt/cni/bin > /dev/null 2>&1
+    log_status "Created CNI directory"
 
-# Stage 4: Configure containerd
-echo "Configuring containerd..."
-sudo mkdir -p /etc/containerd > /dev/null 2>&1
-log_status "Created containerd config directory"
+    sudo tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.6.2.tgz > /dev/null 2>&1
+    log_status "Extracted CNI plugins"
 
-containerd config default | sudo tee /etc/containerd/config.toml > /dev/null 2>&1
-log_status "Generated default containerd config"
+    # Stage 4: Configure containerd
+    echo "Configuring containerd..."
+    sudo mkdir -p /etc/containerd > /dev/null 2>&1
+    log_status "Created containerd config directory"
 
-sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml > /dev/null 2>&1
-log_status "Enabled SystemdCgroup"
+    containerd config default | sudo tee /etc/containerd/config.toml > /dev/null 2>&1
+    log_status "Generated default containerd config"
 
-# Stage 5: Install containerd service
-echo "Installing containerd service..."
-sudo curl -L https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -o /etc/systemd/system/containerd.service > /dev/null 2>&1
-log_status "Downloaded containerd service file"
+    sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml > /dev/null 2>&1
+    log_status "Enabled SystemdCgroup"
 
-sudo systemctl daemon-reload > /dev/null 2>&1
-log_status "Reloaded systemd daemon"
+    # Stage 5: Install containerd service
+    echo "Installing containerd service..."
+    sudo curl -L https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -o /etc/systemd/system/containerd.service > /dev/null 2>&1
+    log_status "Downloaded containerd service file"
 
-sudo systemctl start containerd > /dev/null 2>&1
-log_status "Started containerd"
+    sudo systemctl daemon-reload > /dev/null 2>&1
+    log_status "Reloaded systemd daemon"
 
-sudo systemctl enable containerd > /dev/null 2>&1
-log_status "Enabled containerd on boot"
+    sudo systemctl start containerd > /dev/null 2>&1
+    log_status "Started containerd"
 
-# Stage 6: Enable IP forwarding
-echo "Enabling IP forwarding..."
-echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf > /dev/null 2>&1
-log_status "Enabled IP forwarding"
+    sudo systemctl enable containerd > /dev/null 2>&1
+    log_status "Enabled containerd on boot"
 
-sudo sysctl -p > /dev/null 2>&1
-log_status "Applied IP forwarding setting"
+    # Stage 6: Enable IP forwarding
+    echo "Enabling IP forwarding..."
+    echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf > /dev/null 2>&1
+    log_status "Enabled IP forwarding"
 
-# Stage 7: Enable bridge netfilter
-echo "Enabling bridge netfilter..."
-echo "br_netfilter" | sudo tee -a /etc/modules-load.d/k8s.conf > /dev/null 2>&1
-log_status "Enabled bridge netfilter"
+    sudo sysctl -p > /dev/null 2>&1
+    log_status "Applied IP forwarding setting"
 
-echo "Setup completed successfully!"
+    # Stage 7: Enable bridge netfilter
+    echo "Enabling bridge netfilter..."
+    echo "br_netfilter" | sudo tee -a /etc/modules-load.d/k8s.conf > /dev/null 2>&1
+    log_status "Enabled bridge netfilter"
+
+    echo "Setup completed successfully!"
+fi

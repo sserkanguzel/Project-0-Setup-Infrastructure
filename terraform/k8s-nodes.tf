@@ -54,8 +54,8 @@ resource "proxmox_vm_qemu" "k8s_vm" {
       }
     }
   }
-  ipconfig0   = "ip=${each.value.ipconfig0}/24,gw=${var.gateway}"
-  nameserver  = ${var.nameserver}
+  ipconfig0   = "ip=${each.value.ipconfig0}/24,gw=192.168.1.1"
+  nameserver  = "192.168.1.103"
   ciuser      = var.ssh_username
   ssh_private_key = file("~/.ssh/id_ed25519")
 }
@@ -65,7 +65,7 @@ resource "null_resource" "install_prerequisites" {
   for_each   = var.vms
   depends_on = [proxmox_vm_qemu.k8s_vm]
 
-  provisioner "file" { # File provisioners basically copies the content from your local environment to the remote VM's
+  provisioner "file" {
     source      = "${path.module}/install_prerequisites.sh"
     destination = "/tmp/install_prerequisites.sh"
 
@@ -77,7 +77,7 @@ resource "null_resource" "install_prerequisites" {
     }
   }
 
-  provisioner "remote-exec" { # Remote executers, runs the provisioned file inside remote VM's
+  provisioner "remote-exec" {
     inline = [
       "chmod +x /tmp/install_prerequisites.sh",
       "sed -i 's/\r//' /tmp/install_prerequisites.sh",
@@ -129,9 +129,8 @@ resource "null_resource" "install_kubernetes" {
 
 resource "null_resource" "fetch_join_command" {
   depends_on = [null_resource.install_kubernetes]
-  # Once the installation in controller node completed, this part extracts the join command from the controller node via ssh, creates a join_command.sh in your local environment, copy the content to join_command.sh file and sends it to other worker nodes.
 
-  provisioner "local-exec" { # This part specific to my case since I am running this command to fetch data from cluster to my local win 11 pc. Syntax may change depending on the operating system in your local environment.
+  provisioner "local-exec" {
     command = <<-EOT
       echo '#!/bin/bash' > '${path.module}\\join_command.sh'
       echo "sudo $(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${var.ssh_username}@${var.vms["k8s-ctrlr"].ipconfig0} 'sudo kubeadm token create --print-join-command')" >> '${path.module}\\join_command.sh'
@@ -160,10 +159,10 @@ resource "null_resource" "join_worker_nodes" {
 
   provisioner "remote-exec" {
     inline = [
-      "iconv -f UTF-16 -t UTF-8 /tmp/join_command.sh -o /tmp/join_command_formatted.sh", # This part is specific to my case. Since my local pc saves file as UTF-16 by default. In order for an Ubuntu VM to recognize it, It is needed to convert from UTF-16 to UTF-8. This may be differ in other environments.
+      "iconv -f UTF-16 -t UTF-8 /tmp/join_command.sh -o /tmp/join_command_formatted.sh",
       "chmod +x /tmp/join_command_formatted.sh",
       "sed -i 's/[[:space:]]*$//'  /tmp/join_command_formatted.sh",
-      "bash /tmp/join_command_formatted.sh"
+      "if [ -f /etc/kubernetes/kubelet.conf ]; then echo 'Node already joined. Skipping join command.'; else bash /tmp/join_command_formatted.sh; fi"
     ]
     connection {
       type     = "ssh"
